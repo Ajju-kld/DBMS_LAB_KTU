@@ -1,0 +1,109 @@
+create table bank_customer(cust_id int primary key auto_increment,cust_name varchar(30),email varchar(100));
+create table account(acc_no int primary key ,acc_type varchar(30),cust_id int,balance int,foreign key(cust_id) references bank_customer(cust_id), check(acc_type='current' or acc_type='saving'));
+
+-- procedure for credit;
+
+
+delimiter //
+Create procedure credit(in Acc_no int,in amount int)
+begin
+if(valid(Acc_no))
+then
+update account set balance=getBalance(Acc_no)+amount where account.acc_no = Acc_no;
+select concat("amount $",amount,"is credicted successfully") as message;
+else
+ select concat(Acc_no," is not valid account number") as message;
+ end if;
+end//
+
+
+-- debit(acc_no,amount)
+
+create procedure debit(in Acc_no int,in amount int)
+begin
+declare curren_balance int;
+declare acctype varchar(30);
+if (valid(Acc_no))
+then
+select acc_type into acctype from account where account.acc_no=Acc_no;
+
+if (getBalance(Acc_no)<amount)then
+ select concat( "account does not have enough balance") as message;
+else
+set curren_balance=getBalance(Acc_no);
+if (acctype='current' and (curren_balance-amount)<1000)then
+ select concat( "debit is invalid account balance become less than 1000") as message;
+else
+set curren_balance=curren_balance-amount;
+update account set balance=curren_balance where account.acc_no = Acc_no;
+select concat("amount $",amount," is debited from",Acc_no) as message;
+end if;
+end if;
+
+else
+ select concat(Acc_no," is not valid account number") as message;
+ end if;
+end//
+
+
+-- function for getting balance
+
+create function getBalance(Acc_no int) returns int  deterministic
+begin
+declare curren_balance int;
+
+select balance into curren_balance from account where account.acc_no=Acc_no;
+return curren_balance;
+
+end//
+
+
+-- funtion for checking validity
+
+create function valid(Acc_no int) returns int deterministic
+begin 
+
+if exists(select acc_no from account where account.acc_no=Acc_no)
+then
+ return 1;
+ else return 0;
+ end if;
+end//
+
+
+
+
+
+-- cursor
+
+DELIMITER //
+CREATE PROCEDURE createEmailList (
+	INOUT emailList varchar(4000)
+)
+BEGIN
+	DECLARE finished INTEGER DEFAULT 0;
+	DECLARE emailAddress varchar(100) DEFAULT "";
+
+
+	DEClARE curEmail 
+		CURSOR FOR 
+			SELECT email FROM bank_customer;
+
+
+	DECLARE CONTINUE HANDLER 
+        FOR NOT FOUND SET finished = 1;
+
+	OPEN curEmail;
+
+	getEmail: LOOP
+		FETCH curEmail INTO emailAddress;
+		IF finished = 1 THEN 
+			LEAVE getEmail;
+		END IF;
+		
+		SET emailList = CONCAT(emailAddress,";",emailList);
+	END LOOP getEmail;
+	CLOSE curEmail;
+
+END//
+DELIMITER ;
